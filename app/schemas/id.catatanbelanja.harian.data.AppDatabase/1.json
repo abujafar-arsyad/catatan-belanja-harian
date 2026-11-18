@@ -1,0 +1,102 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "2adaba4a85d879823771c84d6962e317",
+    "entities": [
+      {
+        "tableName": "items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `tanggal` INTEGER NOT NULL, `nama` TEXT NOT NULL, `jumlah` REAL NOT NULL, `satuan` TEXT NOT NULL, `harga` INTEGER NOT NULL, `kategori` TEXT, `toko` TEXT, `catatan` TEXT, `dibuat` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tanggal",
+            "columnName": "tanggal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nama",
+            "columnName": "nama",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "jumlah",
+            "columnName": "jumlah",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "satuan",
+            "columnName": "satuan",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "harga",
+            "columnName": "harga",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kategori",
+            "columnName": "kategori",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "toko",
+            "columnName": "toko",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "catatan",
+            "columnName": "catatan",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dibuat",
+            "columnName": "dibuat",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_items_tanggal",
+            "unique": false,
+            "columnNames": [
+              "tanggal"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_items_tanggal` ON `${TABLE_NAME}` (`tanggal`)"
+          },
+          {
+            "name": "index_items_nama",
+            "unique": false,
+            "columnNames": [
+              "nama"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_items_nama` ON `${TABLE_NAME}` (`nama`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2adaba4a85d879823771c84d6962e317')"
+    ]
+  }
+}
