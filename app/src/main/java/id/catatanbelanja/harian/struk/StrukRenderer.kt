@@ -41,13 +41,14 @@ object StrukRenderer {
         namaPencatat: String,
         catatan: String,
         warna: WarnaTema = WarnaTema.UNGU,
+        namaBuku: String = "",
     ): Bitmap {
-        val ukur = Penggambar(null, tanggal, items, namaPencatat, catatan, warna)
+        val ukur = Penggambar(null, tanggal, items, namaPencatat, catatan, warna, namaBuku)
         val tinggi = ukur.jalankan().toInt() + 1
         val bitmap = Bitmap.createBitmap(LEBAR, tinggi, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.WHITE)
-        Penggambar(canvas, tanggal, items, namaPencatat, catatan, warna).jalankan()
+        Penggambar(canvas, tanggal, items, namaPencatat, catatan, warna, namaBuku).jalankan()
         return bitmap
     }
 
@@ -59,6 +60,7 @@ object StrukRenderer {
         val namaPencatat: String,
         val catatan: String,
         val warna: WarnaTema,
+        val namaBuku: String,
     ) {
         val UTAMA = warna.warnaStruk
         val ZEBRA = warna.zebraStruk
@@ -78,6 +80,7 @@ object StrukRenderer {
         val xSub = xHarga + wHarga + JARAK_KOLOM
 
         val pJudul = paint(66f, bold = true, color = UTAMA)
+        val pBuku = paint(42f, bold = true, color = UTAMA)
         val pTanggal = paint(40f, bold = true)
         val pKecil = paint(30f, color = ABU)
         val pHeader = paint(31f, bold = true)
@@ -92,6 +95,10 @@ object StrukRenderer {
 
             // Judul & tanggal
             teks("Belanja Harian", pJudul, Layout.Alignment.ALIGN_CENTER)
+            if (namaBuku.isNotBlank()) {
+                y += 4f
+                teks(namaBuku.trim(), pBuku, Layout.Alignment.ALIGN_CENTER)
+            }
             y += 10f
             teks(tanggalLengkap(tanggal), pTanggal, Layout.Alignment.ALIGN_CENTER)
             if (namaPencatat.isNotBlank()) {

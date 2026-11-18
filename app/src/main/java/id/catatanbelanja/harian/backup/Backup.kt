@@ -1,5 +1,6 @@
 package id.catatanbelanja.harian.backup
 
+import id.catatanbelanja.harian.data.Buku
 import id.catatanbelanja.harian.data.Item
 import org.json.JSONArray
 import org.json.JSONObject
@@ -7,20 +8,27 @@ import java.time.LocalDate
 
 /**
  * Ekspor / impor data ke JSON (lengkap, untuk pindah HP) dan CSV (bisa dibuka di Excel/Google Sheets).
- * Tanggal ditulis sebagai teks "2026-11-18" supaya mudah dibaca manusia.
+ * Tanggal ditulis sebagai teks "2026-11-18" dan buku ditulis dengan namanya, supaya mudah dibaca manusia.
  */
 object Backup {
     private const val FORMAT = "CatatanBelanjaHarian"
-    private val KOLOM_CSV = listOf("tanggal", "nama", "jumlah", "satuan", "harga", "subtotal", "kategori", "toko", "catatan")
+    private val KOLOM_CSV = listOf("tanggal", "buku", "nama", "jumlah", "satuan", "harga", "subtotal", "kategori", "toko", "catatan")
 
-    data class HasilImpor(val items: List<Item>, val namaPencatat: String?)
+    /** Satu barang hasil impor + nama bukunya (null = file lama tanpa buku). */
+    data class BarisImpor(val item: Item, val buku: String?)
+
+    data class HasilImpor(val baris: List<BarisImpor>, val buku: List<String>, val namaPencatat: String?) {
+        val items: List<Item> get() = baris.map { it.item }
+    }
 
     // ---------- JSON ----------
-    fun keJson(items: List<Item>, namaPencatat: String): String {
+    fun keJson(items: List<Item>, buku: List<Buku>, namaPencatat: String): String {
+        val nama = buku.associate { it.id to it.nama }
         val arr = JSONArray()
         items.forEach { i ->
             arr.put(JSONObject().apply {
                 put("tanggal", LocalDate.ofEpochDay(i.tanggal).toString())
+                put("buku", nama[i.bukuId] ?: Buku.NAMA_BAWAAN)
                 put("nama", i.nama)
                 put("jumlah", i.jumlah)
                 put("satuan", i.satuan)
@@ -33,9 +41,10 @@ object Backup {
         }
         return JSONObject().apply {
             put("format", FORMAT)
-            put("versi", 1)
+            put("versi", 2)
             put("diekspor", System.currentTimeMillis())
             put("namaPencatat", namaPencatat)
+            put("buku", JSONArray(buku.map { it.nama }))
             put("items", arr)
         }.toString(2)
     }
@@ -43,34 +52,40 @@ object Backup {
     fun dariJson(teks: String): HasilImpor {
         val root = JSONObject(teks)
         val arr = root.optJSONArray("items") ?: error("File bukan backup Catatan Belanja")
-        val items = (0 until arr.length()).map { idx ->
+        val baris = (0 until arr.length()).map { idx ->
             val o = arr.getJSONObject(idx)
-            Item(
-                tanggal = LocalDate.parse(o.getString("tanggal")).toEpochDay(),
-                nama = o.getString("nama"),
-                jumlah = o.optDouble("jumlah", 1.0),
-                satuan = o.optString("satuan", "pcs"),
-                harga = o.getLong("harga"),
-                kategori = o.optStringOrNull("kategori"),
-                toko = o.optStringOrNull("toko"),
-                catatan = o.optStringOrNull("catatan"),
-                dibuat = o.optLong("dibuat", System.currentTimeMillis() + idx),
+            BarisImpor(
+                Item(
+                    tanggal = LocalDate.parse(o.getString("tanggal")).toEpochDay(),
+                    nama = o.getString("nama"),
+                    jumlah = o.optDouble("jumlah", 1.0),
+                    satuan = o.optString("satuan", "pcs"),
+                    harga = o.getLong("harga"),
+                    kategori = o.optStringOrNull("kategori"),
+                    toko = o.optStringOrNull("toko"),
+                    catatan = o.optStringOrNull("catatan"),
+                    dibuat = o.optLong("dibuat", System.currentTimeMillis() + idx),
+                ),
+                o.optStringOrNull("buku"),
             )
         }
-        return HasilImpor(items, root.optStringOrNull("namaPencatat"))
+        val daftar = root.optJSONArray("buku")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty()
+        return HasilImpor(baris, gabungNamaBuku(daftar, baris), root.optStringOrNull("namaPencatat"))
     }
 
     private fun JSONObject.optStringOrNull(key: String): String? =
         if (!has(key) || isNull(key)) null else optString(key).ifBlank { null }
 
     // ---------- CSV ----------
-    fun keCsv(items: List<Item>): String = buildString {
+    fun keCsv(items: List<Item>, buku: List<Buku>): String = buildString {
+        val nama = buku.associate { it.id to it.nama }
         append('﻿') // BOM agar Excel membaca UTF-8 dengan benar
         appendLine(KOLOM_CSV.joinToString(","))
         items.forEach { i ->
             appendLine(
                 listOf(
-                    LocalDate.ofEpochDay(i.tanggal).toString(), i.nama, i.jumlah.toString(), i.satuan,
+                    LocalDate.ofEpochDay(i.tanggal).toString(), nama[i.bukuId] ?: Buku.NAMA_BAWAAN,
+                    i.nama, i.jumlah.toString(), i.satuan,
                     i.harga.toString(), i.subtotal.toString(), i.kategori.orEmpty(), i.toko.orEmpty(), i.catatan.orEmpty(),
                 ).joinToString(",") { csvSel(it) }
             )
@@ -78,31 +93,39 @@ object Backup {
     }
 
     fun dariCsv(teks: String): HasilImpor {
-        val baris = parseCsv(teks.removePrefix("﻿")).filter { r -> r.any { it.isNotBlank() } }
-        if (baris.isEmpty()) error("File CSV kosong")
-        val header = baris.first().map { it.trim().lowercase() }
+        val semua = parseCsv(teks.removePrefix("﻿")).filter { r -> r.any { it.isNotBlank() } }
+        if (semua.isEmpty()) error("File CSV kosong")
+        val header = semua.first().map { it.trim().lowercase() }
         fun idx(n: String) = header.indexOf(n)
         val iTgl = idx("tanggal"); val iNama = idx("nama"); val iHarga = idx("harga")
         if (iTgl < 0 || iNama < 0 || iHarga < 0) error("Kolom tanggal, nama, dan harga wajib ada")
         val iJml = idx("jumlah"); val iSat = idx("satuan"); val iKat = idx("kategori")
-        val iToko = idx("toko"); val iCat = idx("catatan")
+        val iToko = idx("toko"); val iCat = idx("catatan"); val iBuku = idx("buku")
         val awal = System.currentTimeMillis()
-        val items = baris.drop(1).mapIndexed { n, r ->
+        val baris = semua.drop(1).mapIndexed { n, r ->
             fun ambil(i: Int) = if (i in r.indices) r[i].trim() else ""
-            Item(
-                tanggal = LocalDate.parse(ambil(iTgl)).toEpochDay(),
-                nama = ambil(iNama),
-                jumlah = ambil(iJml).replace(',', '.').toDoubleOrNull() ?: 1.0,
-                satuan = ambil(iSat).ifEmpty { "pcs" },
-                harga = ambil(iHarga).filter { it.isDigit() }.toLong(),
-                kategori = ambil(iKat).ifEmpty { null },
-                toko = ambil(iToko).ifEmpty { null },
-                catatan = ambil(iCat).ifEmpty { null },
-                dibuat = awal + n,
+            BarisImpor(
+                Item(
+                    tanggal = LocalDate.parse(ambil(iTgl)).toEpochDay(),
+                    nama = ambil(iNama),
+                    jumlah = ambil(iJml).replace(',', '.').toDoubleOrNull() ?: 1.0,
+                    satuan = ambil(iSat).ifEmpty { "pcs" },
+                    harga = ambil(iHarga).filter { it.isDigit() }.toLong(),
+                    kategori = ambil(iKat).ifEmpty { null },
+                    toko = ambil(iToko).ifEmpty { null },
+                    catatan = ambil(iCat).ifEmpty { null },
+                    dibuat = awal + n,
+                ),
+                ambil(iBuku).ifEmpty { null },
             )
         }
-        return HasilImpor(items, null)
+        return HasilImpor(baris, gabungNamaBuku(emptyList(), baris), null)
     }
+
+    /** Urutan buku: dari daftar di file dulu, lalu nama buku lain yang muncul di baris. */
+    private fun gabungNamaBuku(daftar: List<String>, baris: List<BarisImpor>): List<String> =
+        (daftar + baris.mapNotNull { it.buku }).map { it.trim() }.filter { it.isNotEmpty() }
+            .distinctBy { it.lowercase() }
 
     private fun csvSel(s: String): String =
         if (s.any { it == ',' || it == ';' || it == '"' || it == '\n' || it == '\r' }) "\"" + s.replace("\"", "\"\"") + "\"" else s
@@ -134,5 +157,5 @@ object Backup {
     }
 
     /** Kunci untuk mendeteksi data yang sama saat "gabungkan". */
-    fun kunci(i: Item) = "${i.tanggal}|${i.nama.trim().lowercase()}|${i.jumlah}|${i.harga}"
+    fun kunci(i: Item) = "${i.bukuId}|${i.tanggal}|${i.nama.trim().lowercase()}|${i.jumlah}|${i.harga}"
 }

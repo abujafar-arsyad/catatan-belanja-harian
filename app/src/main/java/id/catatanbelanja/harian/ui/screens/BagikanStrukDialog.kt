@@ -68,7 +68,7 @@ import kotlinx.coroutines.withContext
 
 /** Layar penuh: isi catatan opsional, lihat pratinjau struk, lalu Bagikan / Simpan ke Galeri. */
 @Composable
-fun BagikanStrukDialog(app: BelanjaApp, tanggal: Long, items: List<Item>, onTutup: () -> Unit) {
+fun BagikanStrukDialog(app: BelanjaApp, tanggal: Long, namaBuku: String, items: List<Item>, onTutup: () -> Unit) {
     val context = LocalContext.current
     val namaPencatat by app.settings.namaPencatat.collectAsStateWithLifecycle()
     val warna by app.settings.warna.collectAsStateWithLifecycle()
@@ -79,13 +79,13 @@ fun BagikanStrukDialog(app: BelanjaApp, tanggal: Long, items: List<Item>, onTutu
     LaunchedEffect(items, catatan, namaPencatat, warna) {
         delay(if (bitmap == null) 0 else 400)
         bitmap = withContext(Dispatchers.Default) {
-            StrukRenderer.render(tanggal, items, namaPencatat, catatan, warna)
+            StrukRenderer.render(tanggal, items, namaPencatat, catatan, warna, namaBuku)
         }
     }
 
     fun simpan() {
         val bmp = bitmap ?: return
-        val ok = StrukShare.simpanKeGaleri(context, bmp, tanggal)
+        val ok = StrukShare.simpanKeGaleri(context, bmp, tanggal, namaBuku)
         Toast.makeText(
             context,
             if (ok) "Struk tersimpan di Galeri (folder Catatan Belanja)" else "Gagal menyimpan ke Galeri",
@@ -145,7 +145,7 @@ fun BagikanStrukDialog(app: BelanjaApp, tanggal: Long, items: List<Item>, onTutu
                         onClick = {
                             bitmap?.let {
                                 val total = items.sumOf { i -> i.subtotal }
-                                StrukShare.bagikan(context, it, tanggal, "Belanja ${tanggalLengkap(tanggal)}: ${rupiah(total)}")
+                                StrukShare.bagikan(context, it, tanggal, namaBuku, "$namaBuku — ${tanggalLengkap(tanggal)}: ${rupiah(total)}")
                             }
                         },
                         enabled = bitmap != null,

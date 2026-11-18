@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.catatanbelanja.harian.BelanjaApp
 import id.catatanbelanja.harian.backup.Backup
+import id.catatanbelanja.harian.data.Buku
 import id.catatanbelanja.harian.data.ModeTema
 import id.catatanbelanja.harian.data.WarnaTema
 import id.catatanbelanja.harian.ui.theme.contoh
@@ -67,7 +68,7 @@ import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PengaturanScreen(app: BelanjaApp) {
+fun PengaturanScreen(app: BelanjaApp, daftarBuku: List<Buku>) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val dao = app.db.itemDao()
@@ -83,7 +84,7 @@ fun PengaturanScreen(app: BelanjaApp) {
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
             val ok = runCatching {
-                val isi = Backup.keJson(dao.getAll(), namaTersimpan)
+                val isi = Backup.keJson(dao.getAll(), dao.getAllBuku(), namaTersimpan)
                 tulis(context, uri, isi)
             }.isSuccess
             pesan(if (ok) "Backup berhasil disimpan" else "Gagal menyimpan backup")
@@ -92,7 +93,7 @@ fun PengaturanScreen(app: BelanjaApp) {
     val eksporCsv = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
-            val ok = runCatching { tulis(context, uri, Backup.keCsv(dao.getAll())) }.isSuccess
+            val ok = runCatching { tulis(context, uri, Backup.keCsv(dao.getAll(), dao.getAllBuku())) }.isSuccess
             pesan(if (ok) "File CSV berhasil disimpan" else "Gagal menyimpan CSV")
         }
     }
@@ -125,6 +126,8 @@ fun PengaturanScreen(app: BelanjaApp) {
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+
+            KelolaBuku(app, daftarBuku)
 
             Bagian("Tampilan") {
                 Text("Warna tema (juga dipakai di struk)", style = MaterialTheme.typography.bodyMedium)
@@ -205,13 +208,7 @@ fun PengaturanScreen(app: BelanjaApp) {
         fun jalankan(ganti: Boolean) {
             hasilImpor = null
             scope.launch {
-                val jumlahMasuk = if (ganti) {
-                    dao.replaceAll(hasil.items); hasil.items.size
-                } else {
-                    val ada = dao.getAll().map(Backup::kunci).toHashSet()
-                    val baru = hasil.items.filter { Backup.kunci(it) !in ada }
-                    dao.insertAll(baru); baru.size
-                }
+                val jumlahMasuk = terapkanImpor(app, hasil, ganti)
                 if (namaTersimpan.isBlank() && !hasil.namaPencatat.isNullOrBlank()) {
                     app.settings.setNamaPencatat(hasil.namaPencatat)
                     nama = hasil.namaPencatat
@@ -257,4 +254,46 @@ private suspend fun tulis(context: Context, uri: Uri, isi: String) = withContext
 private suspend fun baca(context: Context, uri: Uri): String = withContext(Dispatchers.IO) {
     context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
         ?: error("Tidak bisa membuka file")
+}
+
+/**
+ * Memasukkan hasil impor ke database.
+ * - Ganti semua: semua buku & catatan diganti isi file.
+ * - Gabungkan: buku dicocokkan berdasarkan nama (buku baru dibuat bila belum ada), catatan yang sama dilewati.
+ * Catatan dari file lama yang belum punya buku masuk ke buku yang sedang aktif (atau "Belanja Rumah").
+ * Mengembalikan jumlah barang yang dimasukkan.
+ */
+private suspend fun terapkanImpor(app: BelanjaApp, hasil: Backup.HasilImpor, ganti: Boolean): Int {
+    val dao = app.db.itemDao()
+    if (ganti) {
+        val nama = (hasil.buku + if (hasil.baris.any { it.buku == null }) listOf(Buku.NAMA_BAWAAN) else emptyList())
+            .distinctBy { it.lowercase() }
+            .ifEmpty { listOf(Buku.NAMA_BAWAAN) }
+        val buku = nama.mapIndexed { i, n -> Buku(id = i + 1L, nama = n, urutan = i) }
+        val idDari = buku.associate { it.nama.lowercase() to it.id }
+        val items = hasil.baris.map { b ->
+            b.item.copy(id = 0, bukuId = idDari[(b.buku ?: Buku.NAMA_BAWAAN).lowercase()] ?: buku.first().id)
+        }
+        dao.replaceAll(buku, items)
+        app.settings.setBukuAktif(buku.first().id)
+        return items.size
+    }
+    val ada = dao.getAllBuku().toMutableList()
+    val idDari = ada.associate { it.nama.lowercase() to it.id }.toMutableMap()
+    hasil.buku.forEach { n ->
+        if (n.lowercase() !in idDari) {
+            val urutan = (ada.maxOfOrNull { it.urutan } ?: 0) + 1
+            val id = dao.insertBuku(Buku(nama = n, urutan = urutan))
+            ada += Buku(id, n, urutan)
+            idDari[n.lowercase()] = id
+        }
+    }
+    val aktif = app.settings.bukuAktif.value.takeIf { id -> ada.any { it.id == id } } ?: ada.first().id
+    val items = hasil.baris.map { b ->
+        b.item.copy(id = 0, bukuId = b.buku?.let { idDari[it.lowercase()] } ?: aktif)
+    }
+    val sudahAda = dao.getAll().map(Backup::kunci).toHashSet()
+    val baru = items.filter { Backup.kunci(it) !in sudahAda }
+    dao.insertAll(baru)
+    return baru.size
 }

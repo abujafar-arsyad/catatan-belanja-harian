@@ -46,7 +46,17 @@ class Settings(context: Context) {
         _tema.value = mode
     }
 
+    /** Buku belanja yang sedang dipakai (dipilih di halaman Hari Ini / Riwayat). */
+    private val _bukuAktif = MutableStateFlow(prefs.getLong(KEY_BUKU, Buku.ID_BAWAAN))
+    val bukuAktif: StateFlow<Long> = _bukuAktif.asStateFlow()
+
+    fun setBukuAktif(id: Long) {
+        prefs.edit().putLong(KEY_BUKU, id).apply()
+        _bukuAktif.value = id
+    }
+
     private companion object {
+        const val KEY_BUKU = "buku_aktif"
         const val KEY_NAMA = "nama_pencatat"
         const val KEY_TEMA = "tema"
         const val KEY_WARNA = "warna"

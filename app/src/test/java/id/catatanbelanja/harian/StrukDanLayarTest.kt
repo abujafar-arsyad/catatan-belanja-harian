@@ -38,7 +38,7 @@ class StrukDanLayarTest {
             Item(tanggal = tgl, nama = "Minyak goreng kemasan 2 liter merek apa saja yang namanya panjang", jumlah = 1.0, satuan = "pcs", harga = 38500),
             Item(tanggal = tgl, nama = "Telur ayam", jumlah = 1.5, satuan = "kg", harga = 28000),
         )
-        val kecil = StrukRenderer.render(tgl, sedikit, "Ummu Aisyah", "Uang kembalian Rp 5.000 sudah dimasukkan ke dompet.")
+        val kecil = StrukRenderer.render(tgl, sedikit, "Ummu Aisyah", "Uang kembalian Rp 5.000 sudah dimasukkan ke dompet.", namaBuku = "Belanja Kantor")
         kecil.simpan("struk-5-barang.png")
         assertEquals(1080, kecil.width)
         assertEquals(Color.WHITE, kecil.getPixel(2, 2)) // latar putih

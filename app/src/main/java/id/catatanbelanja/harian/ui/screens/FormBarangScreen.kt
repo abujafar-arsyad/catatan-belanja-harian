@@ -56,6 +56,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import id.catatanbelanja.harian.BelanjaApp
+import id.catatanbelanja.harian.data.Buku
 import id.catatanbelanja.harian.data.Item
 import id.catatanbelanja.harian.data.Pilihan
 import id.catatanbelanja.harian.data.SaranBarang
@@ -70,7 +71,7 @@ import kotlin.math.roundToLong
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun FormBarangScreen(app: BelanjaApp, tanggal: Long, itemId: Long, onSelesai: () -> Unit) {
+fun FormBarangScreen(app: BelanjaApp, tanggal: Long, itemId: Long, buku: Buku, onSelesai: () -> Unit) {
     val dao = app.db.itemDao()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -134,6 +135,7 @@ fun FormBarangScreen(app: BelanjaApp, tanggal: Long, itemId: Long, onSelesai: ()
         return Item(
             id = dasar?.id ?: 0,
             tanggal = dasar?.tanggal ?: tanggal,
+            bukuId = dasar?.bukuId ?: buku.id,
             nama = nama.trim().replaceFirstChar { it.uppercase() },
             jumlah = jumlah,
             satuan = satuanFinal,
@@ -209,6 +211,7 @@ fun FormBarangScreen(app: BelanjaApp, tanggal: Long, itemId: Long, onSelesai: ()
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(tanggalLengkap(asli?.tanggal ?: tanggal), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            Text("Dicatat di: ${buku.nama}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
 
             OutlinedTextField(
                 value = nama,

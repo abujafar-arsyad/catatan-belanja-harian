@@ -4,11 +4,9 @@ import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.runtime.LaunchedEffect
-import id.catatanbelanja.harian.data.ModeTema
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
@@ -22,8 +20,10 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -35,6 +35,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import id.catatanbelanja.harian.data.Buku
+import id.catatanbelanja.harian.data.ModeTema
 import id.catatanbelanja.harian.ui.screens.CariHargaScreen
 import id.catatanbelanja.harian.ui.screens.FormBarangScreen
 import id.catatanbelanja.harian.ui.screens.HariScreen
@@ -83,11 +85,11 @@ private object Rute {
     const val RIWAYAT = "riwayat"
     const val PENGATURAN = "pengaturan"
     const val CARI = "cari"
-    const val HARI = "hari/{tanggal}"
-    const val FORM = "form/{tanggal}/{id}"
+    const val HARI = "hari/{tanggal}/{buku}"
+    const val FORM = "form/{tanggal}/{id}/{buku}"
 
-    fun hari(tanggal: Long) = "hari/$tanggal"
-    fun form(tanggal: Long, id: Long = 0) = "form/$tanggal/$id"
+    fun hari(tanggal: Long, buku: Long) = "hari/$tanggal/$buku"
+    fun form(tanggal: Long, buku: Long, id: Long = 0) = "form/$tanggal/$id/$buku"
 }
 
 private data class Tab(val rute: String, val label: String, val ikon: ImageVector)
@@ -104,6 +106,15 @@ private fun AplikasiBelanja(app: BelanjaApp, hariIni: Long) {
     val entry by nav.currentBackStackEntryAsState()
     val ruteSekarang = entry?.destination?.route
     val tampilkanBar = ruteSekarang in tabs.map { it.rute }
+
+    // Daftar buku belanja & buku yang sedang aktif
+    val dao = app.db.itemDao()
+    val daftarBuku by remember { dao.observeBuku() }.collectAsStateWithLifecycle(emptyList())
+    val idAktif by app.settings.bukuAktif.collectAsStateWithLifecycle()
+    val bukuAktif = daftarBuku.firstOrNull { it.id == idAktif }
+        ?: daftarBuku.firstOrNull()
+        ?: Buku(Buku.ID_BAWAAN, Buku.NAMA_BAWAAN)
+    fun namaBuku(id: Long) = daftarBuku.firstOrNull { it.id == id } ?: Buku(id, "")
 
     Scaffold(
         bottomBar = {
@@ -132,32 +143,50 @@ private fun AplikasiBelanja(app: BelanjaApp, hariIni: Long) {
                 HariScreen(
                     app = app,
                     tanggal = hariIni,
+                    buku = bukuAktif,
+                    daftarBuku = daftarBuku,
                     adalahHariIni = true,
                     onKembali = null,
-                    onTambah = { nav.navigate(Rute.form(hariIni)) },
-                    onEdit = { id -> nav.navigate(Rute.form(hariIni, id)) },
+                    onTambah = { nav.navigate(Rute.form(hariIni, bukuAktif.id)) },
+                    onEdit = { id -> nav.navigate(Rute.form(hariIni, bukuAktif.id, id)) },
                 )
             }
             composable(Rute.RIWAYAT) {
                 RiwayatScreen(
                     app = app,
-                    onBukaTanggal = { nav.navigate(Rute.hari(it)) },
+                    buku = bukuAktif,
+                    daftarBuku = daftarBuku,
+                    onBukaTanggal = { nav.navigate(Rute.hari(it, bukuAktif.id)) },
                     onCari = { nav.navigate(Rute.CARI) },
                 )
             }
-            composable(Rute.PENGATURAN) { PengaturanScreen(app) }
+            composable(Rute.PENGATURAN) { PengaturanScreen(app, daftarBuku) }
             composable(Rute.CARI) {
-                CariHargaScreen(app, onKembali = { nav.popBackStack() }, onBukaTanggal = { nav.navigate(Rute.hari(it)) })
+                CariHargaScreen(
+                    app = app,
+                    daftarBuku = daftarBuku,
+                    onKembali = { nav.popBackStack() },
+                    onBukaTanggal = { tanggal, buku -> nav.navigate(Rute.hari(tanggal, buku)) },
+                )
             }
-            composable(Rute.HARI, arguments = listOf(navArgument("tanggal") { type = NavType.LongType })) { e ->
+            composable(
+                Rute.HARI,
+                arguments = listOf(
+                    navArgument("tanggal") { type = NavType.LongType },
+                    navArgument("buku") { type = NavType.LongType },
+                ),
+            ) { e ->
                 val tanggal = e.arguments?.getLong("tanggal") ?: hariIni
+                val bukuId = e.arguments?.getLong("buku") ?: bukuAktif.id
                 HariScreen(
                     app = app,
                     tanggal = tanggal,
+                    buku = namaBuku(bukuId),
+                    daftarBuku = null, // di halaman detail buku tidak bisa diganti
                     adalahHariIni = tanggal == hariIni,
                     onKembali = { nav.popBackStack() },
-                    onTambah = { nav.navigate(Rute.form(tanggal)) },
-                    onEdit = { id -> nav.navigate(Rute.form(tanggal, id)) },
+                    onTambah = { nav.navigate(Rute.form(tanggal, bukuId)) },
+                    onEdit = { id -> nav.navigate(Rute.form(tanggal, bukuId, id)) },
                 )
             }
             composable(
@@ -165,12 +194,15 @@ private fun AplikasiBelanja(app: BelanjaApp, hariIni: Long) {
                 arguments = listOf(
                     navArgument("tanggal") { type = NavType.LongType },
                     navArgument("id") { type = NavType.LongType },
+                    navArgument("buku") { type = NavType.LongType },
                 ),
             ) { e ->
+                val bukuId = e.arguments?.getLong("buku") ?: bukuAktif.id
                 FormBarangScreen(
                     app = app,
                     tanggal = e.arguments?.getLong("tanggal") ?: hariIni,
                     itemId = e.arguments?.getLong("id") ?: 0L,
+                    buku = namaBuku(bukuId),
                     onSelesai = { nav.popBackStack() },
                 )
             }

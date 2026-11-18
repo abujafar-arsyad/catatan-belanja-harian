@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.catatanbelanja.harian.BelanjaApp
+import id.catatanbelanja.harian.data.Buku
 import id.catatanbelanja.harian.data.TotalHarian
 import id.catatanbelanja.harian.util.hariIni
 import id.catatanbelanja.harian.util.namaBulan
@@ -72,9 +73,15 @@ private fun ringkasBulanan(data: List<TotalHarian>): List<Ringkasan> =
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RiwayatScreen(app: BelanjaApp, onBukaTanggal: (Long) -> Unit, onCari: () -> Unit) {
+fun RiwayatScreen(
+    app: BelanjaApp,
+    buku: Buku,
+    daftarBuku: List<Buku>,
+    onBukaTanggal: (Long) -> Unit,
+    onCari: () -> Unit,
+) {
     val dao = app.db.itemDao()
-    val harian by remember { dao.observeDailyTotals() }.collectAsStateWithLifecycle(emptyList())
+    val harian by remember(buku.id) { dao.observeDailyTotals(buku.id) }.collectAsStateWithLifecycle(emptyList())
     var tab by rememberSaveable { mutableIntStateOf(0) }
 
     val hari = LocalDate.ofEpochDay(hariIni())
@@ -93,6 +100,7 @@ fun RiwayatScreen(app: BelanjaApp, onBukaTanggal: (Long) -> Unit, onCari: () -> 
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
+            PemilihBuku(app, buku, daftarBuku, Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 KotakRingkas("Minggu ini", totalMingguIni, Modifier.weight(1f))
                 KotakRingkas("Bulan ini", totalBulanIni, Modifier.weight(1f))

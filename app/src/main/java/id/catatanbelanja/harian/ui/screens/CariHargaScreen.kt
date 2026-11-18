@@ -41,6 +41,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.catatanbelanja.harian.BelanjaApp
+import id.catatanbelanja.harian.data.Buku
 import id.catatanbelanja.harian.data.Item
 import id.catatanbelanja.harian.util.formatJumlah
 import id.catatanbelanja.harian.util.rupiah
@@ -50,7 +51,13 @@ import kotlinx.coroutines.flow.flowOf
 /** Cari nama barang untuk melihat riwayat harganya dari waktu ke waktu. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CariHargaScreen(app: BelanjaApp, onKembali: () -> Unit, onBukaTanggal: (Long) -> Unit) {
+fun CariHargaScreen(
+    app: BelanjaApp,
+    daftarBuku: List<Buku>,
+    onKembali: () -> Unit,
+    onBukaTanggal: (tanggal: Long, bukuId: Long) -> Unit,
+) {
+    val namaBuku = daftarBuku.associate { it.id to it.nama }
     val dao = app.db.itemDao()
     var kata by rememberSaveable { mutableStateOf("") }
     val kunci = kata.trim()
@@ -104,14 +111,18 @@ fun CariHargaScreen(app: BelanjaApp, onKembali: () -> Unit, onBukaTanggal: (Long
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(hasil, key = { it.id }) { item ->
                     Card(
-                        Modifier.fillMaxWidth().clickable { onBukaTanggal(item.tanggal) },
+                        Modifier.fillMaxWidth().clickable { onBukaTanggal(item.tanggal, item.bukuId) },
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
                     ) {
                         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(item.nama, style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    tanggalPendek(item.tanggal) + (item.toko?.let { " · $it" } ?: ""),
+                                    listOfNotNull(
+                                        tanggalPendek(item.tanggal),
+                                        item.toko,
+                                        namaBuku[item.bukuId]?.takeIf { daftarBuku.size > 1 },
+                                    ).joinToString(" · "),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

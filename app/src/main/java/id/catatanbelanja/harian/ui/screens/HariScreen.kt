@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.catatanbelanja.harian.BelanjaApp
+import id.catatanbelanja.harian.data.Buku
 import id.catatanbelanja.harian.data.Item
 import id.catatanbelanja.harian.ui.theme.GayaTotal
 import id.catatanbelanja.harian.util.formatJumlah
@@ -66,13 +67,15 @@ import kotlinx.coroutines.launch
 fun HariScreen(
     app: BelanjaApp,
     tanggal: Long,
+    buku: Buku,
+    daftarBuku: List<Buku>?,
     adalahHariIni: Boolean,
     onKembali: (() -> Unit)?,
     onTambah: () -> Unit,
     onEdit: (Long) -> Unit,
 ) {
     val dao = app.db.itemDao()
-    val items by remember(tanggal) { dao.observeByDate(tanggal) }.collectAsStateWithLifecycle(emptyList())
+    val items by remember(tanggal, buku.id) { dao.observeByDate(tanggal, buku.id) }.collectAsStateWithLifecycle(emptyList())
     val total = items.sumOf { it.subtotal }
     val scope = rememberCoroutineScope()
 
@@ -114,6 +117,8 @@ fun HariScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                 )
+                Spacer(Modifier.height(10.dp))
+                PemilihBuku(app, buku, daftarBuku)
                 Spacer(Modifier.height(12.dp))
                 Button(
                     onClick = onTambah,
@@ -194,7 +199,7 @@ fun HariScreen(
     }
 
     if (bagikan) {
-        BagikanStrukDialog(app = app, tanggal = tanggal, items = items, onTutup = { bagikan = false })
+        BagikanStrukDialog(app = app, tanggal = tanggal, namaBuku = buku.nama, items = items, onTutup = { bagikan = false })
     }
 }
 

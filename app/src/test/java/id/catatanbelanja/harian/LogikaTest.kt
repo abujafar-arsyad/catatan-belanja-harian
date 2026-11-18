@@ -1,12 +1,14 @@
 package id.catatanbelanja.harian
 
 import id.catatanbelanja.harian.backup.Backup
+import id.catatanbelanja.harian.data.Buku
 import id.catatanbelanja.harian.data.Item
 import id.catatanbelanja.harian.util.formatJumlah
 import id.catatanbelanja.harian.util.parseJumlah
 import id.catatanbelanja.harian.util.rupiah
 import id.catatanbelanja.harian.util.tanggalLengkap
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
@@ -16,8 +18,9 @@ class LogikaTest {
     private val contoh = listOf(
         Item(tanggal = tgl, nama = "Cabai rawit", jumlah = 0.25, satuan = "kg", harga = 60000, kategori = "Bumbu", toko = "Pasar Pagi", dibuat = 1),
         Item(tanggal = tgl, nama = "Tahu, putih \"super\"", jumlah = 2.0, satuan = "bungkus", harga = 5500, catatan = "baris 1\nbaris 2; titik koma", dibuat = 2),
-        Item(tanggal = tgl - 1, nama = "Beras", jumlah = 5.0, satuan = "kg", harga = 13500, dibuat = 3),
+        Item(tanggal = tgl - 1, nama = "Beras", jumlah = 5.0, satuan = "kg", harga = 13500, dibuat = 3, bukuId = 2),
     )
+    private val buku = listOf(Buku(1, "Belanja Rumah", 0), Buku(2, "Belanja Kantor", 1))
 
     @Test fun formatRupiah() {
         assertEquals("Rp 12.500", rupiah(12500))
@@ -42,21 +45,34 @@ class LogikaTest {
         assertEquals(1667L, Item(tanggal = tgl, nama = "x", jumlah = 0.3333, harga = 5000).subtotal)
     }
 
-    @Test fun jsonBolakBalik() {
-        val hasil = Backup.dariJson(Backup.keJson(contoh, "Ummu Aisyah"))
+    @Test fun jsonBolakBalik_bukuIkutTersimpan() {
+        val hasil = Backup.dariJson(Backup.keJson(contoh, buku, "Ummu Aisyah"))
         assertEquals("Ummu Aisyah", hasil.namaPencatat)
-        assertEquals(contoh.map { it.copy(id = 0) }, hasil.items)
+        assertEquals(listOf("Belanja Rumah", "Belanja Kantor"), hasil.buku)
+        assertEquals(listOf("Belanja Rumah", "Belanja Rumah", "Belanja Kantor"), hasil.baris.map { it.buku })
+        assertEquals(contoh.map { it.copy(id = 0, bukuId = 1) }, hasil.items)
     }
 
-    @Test fun csvBolakBalik() {
-        val hasil = Backup.dariCsv(Backup.keCsv(contoh)).items
-        assertEquals(contoh.size, hasil.size)
-        contoh.zip(hasil).forEach { (a, b) ->
-            assertEquals(Backup.kunci(a), Backup.kunci(b))
-            assertEquals(a.nama, b.nama)
-            assertEquals(a.catatan, b.catatan)
-            assertEquals(a.toko, b.toko)
-            assertEquals(a.kategori, b.kategori)
+    @Test fun csvBolakBalik_bukuIkutTersimpan() {
+        val hasil = Backup.dariCsv(Backup.keCsv(contoh, buku))
+        assertEquals(listOf("Belanja Rumah", "Belanja Kantor"), hasil.buku)
+        assertEquals(contoh.size, hasil.baris.size)
+        contoh.zip(hasil.baris).forEach { (a, b) ->
+            assertEquals(Backup.kunci(a.copy(bukuId = 1)), Backup.kunci(b.item))
+            assertEquals(a.nama, b.item.nama)
+            assertEquals(a.catatan, b.item.catatan)
+            assertEquals(a.toko, b.item.toko)
+            assertEquals(a.kategori, b.item.kategori)
+            assertEquals(buku.first { it.id == a.bukuId }.nama, b.buku)
         }
+    }
+
+    @Test fun backupLamaTanpaBuku_tetapBisaDibaca() {
+        val lama = """{"format":"CatatanBelanjaHarian","versi":1,"namaPencatat":"",
+            "items":[{"tanggal":"2026-11-18","nama":"Cabai","jumlah":1,"satuan":"kg","harga":60000}]}"""
+        val hasil = Backup.dariJson(lama)
+        assertEquals(1, hasil.baris.size)
+        assertEquals(null, hasil.baris[0].buku)
+        assertTrue(hasil.buku.isEmpty())
     }
 }

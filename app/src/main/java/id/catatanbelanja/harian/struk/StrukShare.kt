@@ -16,13 +16,16 @@ import java.time.LocalDate
 
 object StrukShare {
 
-    private fun namaFile(tanggal: Long) = "Belanja_${LocalDate.ofEpochDay(tanggal)}.png"
+    private fun namaFile(tanggal: Long, namaBuku: String): String {
+        val buku = namaBuku.replace(Regex("[^A-Za-z0-9]+"), "_").trim('_').ifEmpty { "Belanja" }
+        return "${buku}_${LocalDate.ofEpochDay(tanggal)}.png"
+    }
 
     /** Simpan PNG ke cache aplikasi lalu buka menu Share Android (WhatsApp, Telegram, dll). */
-    fun bagikan(context: Context, bitmap: Bitmap, tanggal: Long, teks: String) {
+    fun bagikan(context: Context, bitmap: Bitmap, tanggal: Long, namaBuku: String, teks: String) {
         val folder = File(context.cacheDir, "struk").apply { mkdirs() }
         folder.listFiles()?.forEach { it.delete() } // bersihkan struk lama
-        val file = File(folder, namaFile(tanggal))
+        val file = File(folder, namaFile(tanggal, namaBuku))
         FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
 
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -42,8 +45,8 @@ object StrukShare {
     val perluIzinTulis: Boolean get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
 
     /** Simpan PNG ke Galeri (folder Pictures/Catatan Belanja). */
-    fun simpanKeGaleri(context: Context, bitmap: Bitmap, tanggal: Long): Boolean = runCatching {
-        val nama = namaFile(tanggal).removeSuffix(".png") + "_" + System.currentTimeMillis() % 100000 + ".png"
+    fun simpanKeGaleri(context: Context, bitmap: Bitmap, tanggal: Long, namaBuku: String): Boolean = runCatching {
+        val nama = namaFile(tanggal, namaBuku).removeSuffix(".png") + "_" + System.currentTimeMillis() % 100000 + ".png"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val resolver = context.contentResolver
             val values = ContentValues().apply {
