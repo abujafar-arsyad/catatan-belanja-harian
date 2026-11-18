@@ -15,7 +15,7 @@ total otomatis, lalu **membagikan struk belanja sebagai gambar PNG** (misalnya k
 | **Form Barang** | Nama (wajib) dengan saran otomatis dari barang yang pernah dibeli + harga terakhirnya, Jumlah (bawaan 1, boleh desimal `0,5`), Satuan (pcs, kg, gram, liter, bungkus, ikat, buah, lainnya), Harga satuan (wajib, keyboard angka), Kategori & Toko (opsional). Subtotal dihitung otomatis. Tombol *Simpan + Lagi* untuk mencatat beruntun. |
 | **Riwayat** | Total minggu ini & bulan ini, daftar per hari / per minggu / per bulan. Ketuk tanggal → detail (bisa diubah & dibagikan). Pencarian harga barang (terakhir, termurah, termahal). |
 | **Bagikan Struk** | Gambar PNG lebar 1080 px, tinggi menyesuaikan jumlah barang. Isi: judul, hari & tanggal, nama pencatat, tabel No/Nama/Jumlah/Harga/Subtotal, TOTAL tebal, jumlah item, catatan opsional. Bisa dibagikan (WhatsApp, Telegram, dll.) atau *Simpan ke Galeri* (folder `Pictures/Catatan Belanja`). |
-| **Pengaturan** | Nama pencatat, tema (ikut HP / terang / gelap), Backup JSON, Ekspor CSV (Excel), Impor JSON/CSV (gabungkan atau ganti semua). |
+| **Pengaturan** | Nama pencatat, warna tema (Ungu — utama, Hijau, Biru), terang / gelap / ikut HP, Backup JSON, Ekspor CSV (Excel), Impor JSON/CSV (gabungkan atau ganti semua). |
 
 ## Struktur kode
 
@@ -32,7 +32,7 @@ app/src/main/java/id/catatanbelanja/harian/
 │   ├── StrukRenderer.kt     # Menggambar struk ke Canvas → Bitmap PNG
 │   └── StrukShare.kt        # FileProvider + Intent.ACTION_SEND, simpan ke Galeri (MediaStore)
 ├── backup/Backup.kt         # Ekspor/impor JSON & CSV
-├── ui/theme/Theme.kt        # Warna hijau lembut + oranye, huruf besar, mode gelap
+├── ui/theme/Theme.kt        # Tema Ungu (utama), Hijau, Biru; huruf besar; mode gelap
 ├── ui/screens/              # Semua layar Compose
 └── util/Format.kt           # Format Rupiah & tanggal Indonesia
 ```

@@ -1,7 +1,12 @@
 package id.catatanbelanja.harian
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
+import id.catatanbelanja.harian.data.ModeTema
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.PaddingValues
@@ -49,7 +54,19 @@ class MainActivity : ComponentActivity() {
         val app = application as BelanjaApp
         setContent {
             val tema by app.settings.tema.collectAsStateWithLifecycle()
-            CatatanBelanjaTheme(mode = tema) {
+            val gelap = when (tema) {
+                ModeTema.SISTEM -> isSystemInDarkTheme()
+                ModeTema.TERANG -> false
+                ModeTema.GELAP -> true
+            }
+            // Warna ikon status bar mengikuti tema aplikasi (bukan hanya tema HP)
+            LaunchedEffect(gelap) {
+                val gaya = if (gelap) SystemBarStyle.dark(Color.TRANSPARENT)
+                else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = gaya, navigationBarStyle = gaya)
+            }
+            val warna by app.settings.warna.collectAsStateWithLifecycle()
+            CatatanBelanjaTheme(gelap = gelap, warna = warna) {
                 AplikasiBelanja(app, hariIniState.longValue)
             }
         }

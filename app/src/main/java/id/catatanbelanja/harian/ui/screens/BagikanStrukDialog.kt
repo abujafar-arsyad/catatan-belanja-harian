@@ -71,14 +71,15 @@ import kotlinx.coroutines.withContext
 fun BagikanStrukDialog(app: BelanjaApp, tanggal: Long, items: List<Item>, onTutup: () -> Unit) {
     val context = LocalContext.current
     val namaPencatat by app.settings.namaPencatat.collectAsStateWithLifecycle()
+    val warna by app.settings.warna.collectAsStateWithLifecycle()
     var catatan by rememberSaveable { mutableStateOf("") }
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     // Gambar ulang pratinjau saat catatan/daftar berubah (diberi jeda agar tidak berat saat mengetik)
-    LaunchedEffect(items, catatan, namaPencatat) {
+    LaunchedEffect(items, catatan, namaPencatat, warna) {
         delay(if (bitmap == null) 0 else 400)
         bitmap = withContext(Dispatchers.Default) {
-            StrukRenderer.render(tanggal, items, namaPencatat, catatan)
+            StrukRenderer.render(tanggal, items, namaPencatat, catatan, warna)
         }
     }
 

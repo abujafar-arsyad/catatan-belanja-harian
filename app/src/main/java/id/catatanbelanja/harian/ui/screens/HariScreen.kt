@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -27,7 +28,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -238,23 +239,39 @@ private fun BarisBarang(
 @Composable
 private fun PanelTotal(total: Long, jumlahItem: Int, bisaBagikan: Boolean, onBagikan: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.secondaryContainer, tonalElevation = 3.dp) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            val lebar = maxWidth > 600.dp // tablet / layar mendatar: total & tombol sebaris
+            val angkaTotal = @Composable {
+                Column {
                     Text("TOTAL ($jumlahItem barang)", style = MaterialTheme.typography.labelLarge)
                     Text(rupiah(total), style = GayaTotal, color = MaterialTheme.colorScheme.onSecondaryContainer)
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            Box {
-                FilledTonalButton(
+            val tombol = @Composable { mod: Modifier ->
+                Button(
                     onClick = onBagikan,
                     enabled = bisaBagikan,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    modifier = mod.height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        contentColor = MaterialTheme.colorScheme.onSecondary,
+                    ),
                 ) {
                     Icon(Icons.Filled.Share, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text("Bagikan Struk")
+                }
+            }
+            if (lebar) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) { angkaTotal() }
+                    tombol(Modifier.width(320.dp))
+                }
+            } else {
+                Column {
+                    angkaTotal()
+                    Spacer(Modifier.height(8.dp))
+                    tombol(Modifier.fillMaxWidth())
                 }
             }
         }

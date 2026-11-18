@@ -10,6 +10,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import id.catatanbelanja.harian.data.Item
+import id.catatanbelanja.harian.data.WarnaTema
 import id.catatanbelanja.harian.util.angka
 import id.catatanbelanja.harian.util.formatJumlah
 import id.catatanbelanja.harian.util.rupiah
@@ -27,8 +28,6 @@ object StrukRenderer {
 
     private val HITAM = Color.rgb(0x1A, 0x1A, 0x1A)
     private val ABU = Color.rgb(0x6B, 0x6B, 0x6B)
-    private val HIJAU = Color.rgb(0x2E, 0x7D, 0x4F)
-    private val ZEBRA = Color.rgb(0xF3, 0xF8, 0xF1)
 
     private fun paint(size: Float, bold: Boolean = false, color: Int = HITAM) = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = size
@@ -36,13 +35,19 @@ object StrukRenderer {
         typeface = Typeface.create(Typeface.SANS_SERIF, if (bold) Typeface.BOLD else Typeface.NORMAL)
     }
 
-    fun render(tanggal: Long, items: List<Item>, namaPencatat: String, catatan: String): Bitmap {
-        val ukur = Penggambar(null, tanggal, items, namaPencatat, catatan)
+    fun render(
+        tanggal: Long,
+        items: List<Item>,
+        namaPencatat: String,
+        catatan: String,
+        warna: WarnaTema = WarnaTema.UNGU,
+    ): Bitmap {
+        val ukur = Penggambar(null, tanggal, items, namaPencatat, catatan, warna)
         val tinggi = ukur.jalankan().toInt() + 1
         val bitmap = Bitmap.createBitmap(LEBAR, tinggi, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.WHITE)
-        Penggambar(canvas, tanggal, items, namaPencatat, catatan).jalankan()
+        Penggambar(canvas, tanggal, items, namaPencatat, catatan, warna).jalankan()
         return bitmap
     }
 
@@ -53,7 +58,10 @@ object StrukRenderer {
         val items: List<Item>,
         val namaPencatat: String,
         val catatan: String,
+        val warna: WarnaTema,
     ) {
+        val UTAMA = warna.warnaStruk
+        val ZEBRA = warna.zebraStruk
         var y = 0f
         val lebarIsi = LEBAR - 2 * TEPI
 
@@ -69,14 +77,14 @@ object StrukRenderer {
         val xHarga = xJumlah + wJumlah + JARAK_KOLOM
         val xSub = xHarga + wHarga + JARAK_KOLOM
 
-        val pJudul = paint(66f, bold = true, color = HIJAU)
+        val pJudul = paint(66f, bold = true, color = UTAMA)
         val pTanggal = paint(40f, bold = true)
         val pKecil = paint(30f, color = ABU)
         val pHeader = paint(31f, bold = true)
         val pIsi = paint(33f)
         val pIsiTebal = paint(33f, bold = true)
         val pTotalLabel = paint(52f, bold = true)
-        val pTotal = paint(68f, bold = true, color = HIJAU)
+        val pTotal = paint(68f, bold = true, color = UTAMA)
         val pSedang = paint(34f)
 
         fun jalankan(): Float {

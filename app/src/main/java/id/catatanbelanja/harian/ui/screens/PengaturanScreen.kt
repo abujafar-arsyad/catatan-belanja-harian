@@ -46,6 +46,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.catatanbelanja.harian.BelanjaApp
 import id.catatanbelanja.harian.backup.Backup
 import id.catatanbelanja.harian.data.ModeTema
+import id.catatanbelanja.harian.data.WarnaTema
+import id.catatanbelanja.harian.ui.theme.contoh
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -59,6 +73,7 @@ fun PengaturanScreen(app: BelanjaApp) {
     val dao = app.db.itemDao()
     val namaTersimpan by app.settings.namaPencatat.collectAsStateWithLifecycle()
     val tema by app.settings.tema.collectAsStateWithLifecycle()
+    val warna by app.settings.warna.collectAsStateWithLifecycle()
     var nama by rememberSaveable { mutableStateOf(namaTersimpan) }
     var hasilImpor by remember { mutableStateOf<Backup.HasilImpor?>(null) }
 
@@ -112,6 +127,35 @@ fun PengaturanScreen(app: BelanjaApp) {
             }
 
             Bagian("Tampilan") {
+                Text("Warna tema (juga dipakai di struk)", style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    WarnaTema.entries.forEach { w ->
+                        val dipilih = warna == w
+                        Column(
+                            Modifier.weight(1f)
+                                .clip(RoundedCornerShape(16.dp))
+                                .border(
+                                    if (dipilih) 3.dp else 1.dp,
+                                    if (dipilih) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                                    RoundedCornerShape(16.dp),
+                                )
+                                .selectable(selected = dipilih, onClick = { app.settings.setWarna(w) }, role = Role.RadioButton)
+                                .padding(vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Box(
+                                Modifier.size(44.dp).clip(CircleShape).background(w.contoh()),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (dipilih) Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White)
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Text(w.label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Text("Terang / gelap", style = MaterialTheme.typography.bodyMedium)
                 listOf(
                     ModeTema.SISTEM to "Ikuti pengaturan HP",
                     ModeTema.TERANG to "Terang",

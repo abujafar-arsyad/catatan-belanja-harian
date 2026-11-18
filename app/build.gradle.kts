@@ -32,6 +32,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { compose = true }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 kotlin {
@@ -60,4 +63,8 @@ dependencies {
     implementation("androidx.room:room-runtime:2.8.2")
     implementation("androidx.room:room-ktx:2.8.2")
     ksp("androidx.room:room-compiler:2.8.2")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303") // org.json asli untuk unit test di JVM
+    testImplementation("org.robolectric:robolectric:4.16")
 }

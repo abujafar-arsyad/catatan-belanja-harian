@@ -1,6 +1,6 @@
 <resources>
     <style name="Theme.CatatanBelanja" parent="android:Theme.Material.NoActionBar">
-        <item name="android:statusBarColor">#FF10140F</item>
-        <item name="android:windowBackground">#FF10140F</item>
+        <item name="android:statusBarColor">#FF141218</item>
+        <item name="android:windowBackground">#FF141218</item>
     </style>
 </resources>
