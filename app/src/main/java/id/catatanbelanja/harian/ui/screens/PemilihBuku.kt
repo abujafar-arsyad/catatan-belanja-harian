@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -84,6 +86,7 @@ fun PemilihBuku(app: BelanjaApp, buku: Buku, daftarBuku: List<Buku>?, modifier: 
 private fun DialogPilihBuku(app: BelanjaApp, aktif: Buku, daftarBuku: List<Buku>, onTutup: () -> Unit) {
     val scope = rememberCoroutineScope()
     var namaBaru by remember { mutableStateOf("") }
+    var talanganBaru by remember { mutableStateOf(false) }
     var tambahMode by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -125,11 +128,12 @@ private fun DialogPilihBuku(app: BelanjaApp, aktif: Buku, daftarBuku: List<Buku>
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                             modifier = Modifier.fillMaxWidth(),
                         )
+                        PilihanTalangan(talanganBaru) { talanganBaru = it }
                         OutlinedButton(
                             onClick = {
                                 val nama = namaBaru.trim()
                                 if (nama.isNotEmpty()) scope.launch {
-                                    val id = tambahBuku(app, nama, daftarBuku)
+                                    val id = tambahBuku(app, nama, daftarBuku, talanganBaru)
                                     app.settings.setBukuAktif(id)
                                     onTutup()
                                 }
@@ -146,8 +150,29 @@ private fun DialogPilihBuku(app: BelanjaApp, aktif: Buku, daftarBuku: List<Buku>
 }
 
 /** Menambah buku baru di urutan paling akhir; jika nama sudah ada, buku itu yang dipakai. */
-suspend fun tambahBuku(app: BelanjaApp, nama: String, daftarBuku: List<Buku>): Long {
+suspend fun tambahBuku(app: BelanjaApp, nama: String, daftarBuku: List<Buku>, talangan: Boolean = false): Long {
     daftarBuku.firstOrNull { it.nama.equals(nama, ignoreCase = true) }?.let { return it.id }
     val urutan = (daftarBuku.maxOfOrNull { it.urutan } ?: 0) + 1
-    return app.db.itemDao().insertBuku(Buku(nama = nama, urutan = urutan))
+    return app.db.itemDao().insertBuku(Buku(nama = nama, urutan = urutan, talangan = talangan))
+}
+
+/** Kotak centang "uang ditalangi" yang dipakai saat membuat / mengubah buku. */
+@Composable
+fun PilihanTalangan(talangan: Boolean, onUbah: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth()
+            .toggleable(value = talangan, role = Role.Checkbox, onValueChange = onUbah)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(checked = talangan, onCheckedChange = null)
+        Spacer(Modifier.width(8.dp))
+        Column {
+            Text("Uangnya ditalangi dulu", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Untuk belanja kantor / titipan orang. Bisa ditandai \"sudah diganti\".",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
 }

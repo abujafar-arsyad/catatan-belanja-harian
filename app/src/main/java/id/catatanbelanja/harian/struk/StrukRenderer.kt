@@ -28,6 +28,7 @@ object StrukRenderer {
 
     private val HITAM = Color.rgb(0x1A, 0x1A, 0x1A)
     private val ABU = Color.rgb(0x6B, 0x6B, 0x6B)
+    private val MERAH = Color.rgb(0xC6, 0x28, 0x28)
 
     private fun paint(size: Float, bold: Boolean = false, color: Int = HITAM) = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = size
@@ -42,13 +43,14 @@ object StrukRenderer {
         catatan: String,
         warna: WarnaTema = WarnaTema.UNGU,
         namaBuku: String = "",
+        statusGanti: Boolean? = null,
     ): Bitmap {
-        val ukur = Penggambar(null, tanggal, items, namaPencatat, catatan, warna, namaBuku)
+        val ukur = Penggambar(null, tanggal, items, namaPencatat, catatan, warna, namaBuku, statusGanti)
         val tinggi = ukur.jalankan().toInt() + 1
         val bitmap = Bitmap.createBitmap(LEBAR, tinggi, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.WHITE)
-        Penggambar(canvas, tanggal, items, namaPencatat, catatan, warna, namaBuku).jalankan()
+        Penggambar(canvas, tanggal, items, namaPencatat, catatan, warna, namaBuku, statusGanti).jalankan()
         return bitmap
     }
 
@@ -61,6 +63,7 @@ object StrukRenderer {
         val catatan: String,
         val warna: WarnaTema,
         val namaBuku: String,
+        val statusGanti: Boolean?,
     ) {
         val UTAMA = warna.warnaStruk
         val ZEBRA = warna.zebraStruk
@@ -150,6 +153,11 @@ object StrukRenderer {
             gambar(rupiah(total), pTotal, TEPI, y, lebarIsi, Layout.Alignment.ALIGN_OPPOSITE)
             y += hTotal + 14f
             teks("Jumlah item: ${items.size} barang", pSedang, Layout.Alignment.ALIGN_NORMAL)
+            if (statusGanti != null) {
+                y += 8f
+                val pStatus = paint(36f, bold = true, color = if (statusGanti) UTAMA else MERAH)
+                teks(if (statusGanti) "Status: SUDAH DIGANTI ✓" else "Status: BELUM DIGANTI", pStatus, Layout.Alignment.ALIGN_NORMAL)
+            }
             y += 24f
 
             // Catatan

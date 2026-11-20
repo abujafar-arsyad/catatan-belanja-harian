@@ -1,6 +1,10 @@
 package id.catatanbelanja.harian.ui.screens
 
+import android.content.res.Configuration
 import android.widget.Toast
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalConfiguration
+import id.catatanbelanja.harian.util.LocaleID
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,6 +41,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.runtime.mutableLongStateOf
+import id.catatanbelanja.harian.util.hariIni
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -90,6 +101,9 @@ fun FormBarangScreen(app: BelanjaApp, tanggal: Long, itemId: Long, buku: Buku, o
     var catatan by rememberSaveable { mutableStateOf("") }
     var cobaSimpan by remember { mutableStateOf(false) }
     var konfirmasiHapus by remember { mutableStateOf(false) }
+    // Tanggal belanja: bisa diganti, misalnya untuk mencatat belanja kemarin yang terlupa
+    var tanggalDipilih by rememberSaveable { mutableLongStateOf(tanggal) }
+    var pilihTanggal by remember { mutableStateOf(false) }
 
     // Saran autocomplete
     var saran by remember { mutableStateOf<List<SaranBarang>>(emptyList()) }
@@ -109,6 +123,7 @@ fun FormBarangScreen(app: BelanjaApp, tanggal: Long, itemId: Long, buku: Buku, o
                 kategori = item.kategori
                 toko = item.toko.orEmpty()
                 catatan = item.catatan.orEmpty()
+                tanggalDipilih = item.tanggal
                 dimuat = true
             }
         }
@@ -134,8 +149,9 @@ fun FormBarangScreen(app: BelanjaApp, tanggal: Long, itemId: Long, buku: Buku, o
         val dasar = asli
         return Item(
             id = dasar?.id ?: 0,
-            tanggal = dasar?.tanggal ?: tanggal,
+            tanggal = tanggalDipilih,
             bukuId = dasar?.bukuId ?: buku.id,
+            lunas = dasar?.lunas ?: false,
             nama = nama.trim().replaceFirstChar { it.uppercase() },
             jumlah = jumlah,
             satuan = satuanFinal,
@@ -158,6 +174,10 @@ fun FormBarangScreen(app: BelanjaApp, tanggal: Long, itemId: Long, buku: Buku, o
         val item = buatItem() ?: return
         scope.launch {
             if (modeEdit) dao.update(item) else dao.insert(item)
+            if (item.tanggal != tanggal) {
+                // Barang pindah ke tanggal lain: beri tahu supaya tidak bingung kenapa tidak muncul di daftar ini
+                Toast.makeText(context, "${item.nama} disimpan di tanggal ${tanggalLengkap(item.tanggal)}", Toast.LENGTH_LONG).show()
+            }
             if (lagi) {
                 Toast.makeText(context, "${item.nama} tersimpan", Toast.LENGTH_SHORT).show()
                 kosongkan()
@@ -210,8 +230,20 @@ fun FormBarangScreen(app: BelanjaApp, tanggal: Long, itemId: Long, buku: Buku, o
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(tanggalLengkap(asli?.tanggal ?: tanggal), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-            Text("Dicatat di: ${buku.nama}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+            Card(
+                onClick = { pilihTanggal = true },
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            ) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.DateRange, contentDescription = null)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(tanggalLengkap(tanggalDipilih), style = MaterialTheme.typography.titleMedium)
+                        Text("Dicatat di: ${buku.nama}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    }
+                    Text("Ubah tanggal", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                }
+            }
 
             OutlinedTextField(
                 value = nama,
@@ -337,6 +369,45 @@ fun FormBarangScreen(app: BelanjaApp, tanggal: Long, itemId: Long, buku: Buku, o
         }
     }
 
+    if (pilihTanggal) {
+        // Kalender selalu berbahasa Indonesia, walaupun bahasa HP diatur ke bahasa lain
+        val konfigurasi = LocalConfiguration.current
+        val konfigurasiID = remember(konfigurasi) { Configuration(konfigurasi).apply { setLocale(LocaleID) } }
+        CompositionLocalProvider(LocalConfiguration provides konfigurasiID) {
+        val hariIniMs = hariIni() * HARI_MS
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = tanggalDipilih * HARI_MS,
+            selectableDates = object : SelectableDates {
+                // Belanja yang dicatat tidak mungkin di masa depan
+                override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= hariIniMs
+            },
+        )
+        DatePickerDialog(
+            onDismissRequest = { pilihTanggal = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { tanggalDipilih = it / HARI_MS }
+                    pilihTanggal = false
+                }) { Text("Pilih") }
+            },
+            dismissButton = { TextButton(onClick = { pilihTanggal = false }) { Text("Batal") } },
+        ) {
+            DatePicker(
+                state = state,
+                title = { Text("Tanggal belanja", Modifier.padding(start = 24.dp, top = 16.dp)) },
+                headline = {
+                    Text(
+                        state.selectedDateMillis?.let { tanggalLengkap(it / HARI_MS) } ?: "Pilih tanggal",
+                        Modifier.padding(start = 24.dp, end = 12.dp, bottom = 12.dp),
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                },
+                showModeToggle = false,
+            )
+        }
+        }
+    }
+
     if (konfirmasiHapus) {
         AlertDialog(
             onDismissRequest = { konfirmasiHapus = false },
@@ -352,3 +423,6 @@ fun FormBarangScreen(app: BelanjaApp, tanggal: Long, itemId: Long, buku: Buku, o
         )
     }
 }
+
+/** Satu hari dalam milidetik (DatePicker memakai waktu UTC tengah malam). */
+private const val HARI_MS = 86_400_000L

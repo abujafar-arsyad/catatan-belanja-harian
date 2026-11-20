@@ -25,6 +25,8 @@ data class Item(
     val toko: String? = null,
     val catatan: String? = null,
     val dibuat: Long = System.currentTimeMillis(),
+    /** Untuk buku talangan: true jika uangnya sudah diganti. */
+    @ColumnInfo(defaultValue = "0") val lunas: Boolean = false,
 ) {
     val subtotal: Long get() = (jumlah * harga).roundToLong()
 }
@@ -38,6 +40,11 @@ data class Buku(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val nama: String,
     val urutan: Int = 0,
+    /**
+     * Buku "talangan": uang belanjanya dibayar dulu lalu diganti
+     * (misalnya belanja kantor atau titipan Pak Yanto). Menampilkan status "sudah diganti".
+     */
+    @ColumnInfo(defaultValue = "0") val talangan: Boolean = false,
 ) {
     companion object {
         const val ID_BAWAAN = 1L
@@ -50,7 +57,11 @@ data class TotalHarian(
     val tanggal: Long,
     val total: Long,
     val jumlahItem: Int,
-)
+    /** Bagian total yang belum diganti (hanya berarti untuk buku talangan). */
+    val belumLunas: Long = 0,
+) {
+    val sudahLunas: Boolean get() = belumLunas == 0L
+}
 
 /** Saran autocomplete: nama barang + data terakhir kali dibeli. */
 data class SaranBarang(

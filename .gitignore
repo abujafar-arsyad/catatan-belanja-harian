@@ -9,3 +9,6 @@ captures/
 .cxx/
 *.keystore
 *.jks
+
+# Kunci tanda tangan rilis — JANGAN di-commit
+keystore.properties

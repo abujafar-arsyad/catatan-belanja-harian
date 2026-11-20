@@ -12,12 +12,18 @@ import java.time.LocalDate
  */
 object Backup {
     private const val FORMAT = "CatatanBelanjaHarian"
-    private val KOLOM_CSV = listOf("tanggal", "buku", "nama", "jumlah", "satuan", "harga", "subtotal", "kategori", "toko", "catatan")
+    private val KOLOM_CSV = listOf("tanggal", "buku", "nama", "jumlah", "satuan", "harga", "subtotal", "kategori", "toko", "catatan", "sudah_diganti")
 
     /** Satu barang hasil impor + nama bukunya (null = file lama tanpa buku). */
     data class BarisImpor(val item: Item, val buku: String?)
 
-    data class HasilImpor(val baris: List<BarisImpor>, val buku: List<String>, val namaPencatat: String?) {
+    data class HasilImpor(
+        val baris: List<BarisImpor>,
+        val buku: List<String>,
+        val namaPencatat: String?,
+        /** Nama buku (huruf kecil) yang ditandai "ditalangi". */
+        val bukuTalangan: Set<String> = emptySet(),
+    ) {
         val items: List<Item> get() = baris.map { it.item }
     }
 
@@ -37,14 +43,15 @@ object Backup {
                 put("toko", i.toko ?: JSONObject.NULL)
                 put("catatan", i.catatan ?: JSONObject.NULL)
                 put("dibuat", i.dibuat)
+                put("lunas", i.lunas)
             })
         }
         return JSONObject().apply {
             put("format", FORMAT)
-            put("versi", 2)
+            put("versi", 3)
             put("diekspor", System.currentTimeMillis())
             put("namaPencatat", namaPencatat)
-            put("buku", JSONArray(buku.map { it.nama }))
+            put("buku", JSONArray(buku.map { JSONObject().put("nama", it.nama).put("talangan", it.talangan) }))
             put("items", arr)
         }.toString(2)
     }
@@ -65,12 +72,24 @@ object Backup {
                     toko = o.optStringOrNull("toko"),
                     catatan = o.optStringOrNull("catatan"),
                     dibuat = o.optLong("dibuat", System.currentTimeMillis() + idx),
+                    lunas = o.optBoolean("lunas", false),
                 ),
                 o.optStringOrNull("buku"),
             )
         }
-        val daftar = root.optJSONArray("buku")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty()
-        return HasilImpor(baris, gabungNamaBuku(daftar, baris), root.optStringOrNull("namaPencatat"))
+        // "buku" berisi teks (backup versi 2) atau objek {nama, talangan} (versi 3)
+        val daftarBuku = root.optJSONArray("buku")?.let { a ->
+            (0 until a.length()).map { i ->
+                val o = a.optJSONObject(i)
+                if (o != null) o.getString("nama") to o.optBoolean("talangan", false) else a.getString(i) to false
+            }
+        }.orEmpty()
+        return HasilImpor(
+            baris,
+            gabungNamaBuku(daftarBuku.map { it.first }, baris),
+            root.optStringOrNull("namaPencatat"),
+            daftarBuku.filter { it.second }.map { it.first.trim().lowercase() }.toSet(),
+        )
     }
 
     private fun JSONObject.optStringOrNull(key: String): String? =
@@ -87,6 +106,7 @@ object Backup {
                     LocalDate.ofEpochDay(i.tanggal).toString(), nama[i.bukuId] ?: Buku.NAMA_BAWAAN,
                     i.nama, i.jumlah.toString(), i.satuan,
                     i.harga.toString(), i.subtotal.toString(), i.kategori.orEmpty(), i.toko.orEmpty(), i.catatan.orEmpty(),
+                    if (i.lunas) "ya" else "",
                 ).joinToString(",") { csvSel(it) }
             )
         }
@@ -100,7 +120,7 @@ object Backup {
         val iTgl = idx("tanggal"); val iNama = idx("nama"); val iHarga = idx("harga")
         if (iTgl < 0 || iNama < 0 || iHarga < 0) error("Kolom tanggal, nama, dan harga wajib ada")
         val iJml = idx("jumlah"); val iSat = idx("satuan"); val iKat = idx("kategori")
-        val iToko = idx("toko"); val iCat = idx("catatan"); val iBuku = idx("buku")
+        val iToko = idx("toko"); val iCat = idx("catatan"); val iBuku = idx("buku"); val iLunas = idx("sudah_diganti")
         val awal = System.currentTimeMillis()
         val baris = semua.drop(1).mapIndexed { n, r ->
             fun ambil(i: Int) = if (i in r.indices) r[i].trim() else ""
@@ -115,6 +135,7 @@ object Backup {
                     toko = ambil(iToko).ifEmpty { null },
                     catatan = ambil(iCat).ifEmpty { null },
                     dibuat = awal + n,
+                    lunas = ambil(iLunas).lowercase() in setOf("ya", "y", "1", "true", "sudah"),
                 ),
                 ambil(iBuku).ifEmpty { null },
             )

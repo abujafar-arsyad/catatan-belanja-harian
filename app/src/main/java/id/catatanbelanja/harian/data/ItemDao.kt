@@ -38,10 +38,22 @@ interface ItemDao {
     @Query(
         """SELECT tanggal,
                   SUM(CAST(ROUND(jumlah * harga) AS INTEGER)) AS total,
-                  COUNT(*) AS jumlahItem
+                  COUNT(*) AS jumlahItem,
+                  SUM(CASE WHEN lunas = 0 THEN CAST(ROUND(jumlah * harga) AS INTEGER) ELSE 0 END) AS belumLunas
            FROM items WHERE bukuId = :bukuId GROUP BY tanggal ORDER BY tanggal DESC"""
     )
     fun observeDailyTotals(bukuId: Long): Flow<List<TotalHarian>>
+
+    /** Tandai semua barang pada satu tanggal di satu buku sebagai sudah/belum diganti. */
+    @Query("UPDATE items SET lunas = :lunas WHERE tanggal = :tanggal AND bukuId = :bukuId")
+    suspend fun setLunas(tanggal: Long, bukuId: Long, lunas: Boolean)
+
+    /** Barang dalam rentang tanggal (untuk laporan PDF mingguan/bulanan). */
+    @Query(
+        """SELECT * FROM items WHERE bukuId = :bukuId AND tanggal BETWEEN :dari AND :sampai
+           ORDER BY tanggal ASC, dibuat ASC, id ASC"""
+    )
+    suspend fun getItemsRange(bukuId: Long, dari: Long, sampai: Long): List<Item>
 
     /** Untuk autocomplete (dari semua buku): tiap nama barang diambil data pembelian terakhirnya. */
     @Query(

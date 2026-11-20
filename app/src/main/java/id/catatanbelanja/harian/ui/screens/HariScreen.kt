@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
@@ -32,6 +34,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -142,6 +145,14 @@ fun HariScreen(
                     )
                 }
             } else {
+                if (buku.talangan) {
+                    item {
+                        KartuStatusGanti(
+                            lunas = items.all { it.lunas },
+                            onUbah = { lunas -> scope.launch { dao.setLunas(tanggal, buku.id, lunas) } },
+                        )
+                    }
+                }
                 item {
                     Text(
                         "Ketuk barang untuk mengubah, tekan lama untuk pilihan lain.",
@@ -199,7 +210,11 @@ fun HariScreen(
     }
 
     if (bagikan) {
-        BagikanStrukDialog(app = app, tanggal = tanggal, namaBuku = buku.nama, items = items, onTutup = { bagikan = false })
+        BagikanStrukDialog(
+            app = app, tanggal = tanggal, namaBuku = buku.nama, items = items,
+            statusGanti = if (buku.talangan) items.all { it.lunas } else null,
+            onTutup = { bagikan = false },
+        )
     }
 }
 
@@ -278,6 +293,32 @@ private fun PanelTotal(total: Long, jumlahItem: Int, bisaBagikan: Boolean, onBag
                     Spacer(Modifier.height(8.dp))
                     tombol(Modifier.fillMaxWidth())
                 }
+            }
+        }
+    }
+}
+
+/** Untuk buku talangan: status apakah belanja hari ini sudah diganti uangnya. */
+@Composable
+private fun KartuStatusGanti(lunas: Boolean, onUbah: (Boolean) -> Unit) {
+    val warnaLatar = if (lunas) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
+    val warnaTeks = if (lunas) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+    Card(colors = CardDefaults.cardColors(containerColor = warnaLatar, contentColor = warnaTeks)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(if (lunas) Icons.Filled.CheckCircle else Icons.Filled.Info, contentDescription = null)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Status uang", style = MaterialTheme.typography.labelMedium)
+                Text(
+                    if (lunas) "Sudah diganti" else "Belum diganti",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            if (lunas) {
+                OutlinedButton(onClick = { onUbah(false) }) { Text("Batalkan") }
+            } else {
+                Button(onClick = { onUbah(true) }) { Text("Tandai sudah diganti") }
             }
         }
     }

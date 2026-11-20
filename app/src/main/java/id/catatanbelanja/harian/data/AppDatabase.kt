@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Item::class, Buku::class], version = 2, exportSchema = true)
+@Database(entities = [Item::class, Buku::class], version = 3, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun itemDao(): ItemDao
 
@@ -34,9 +34,17 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** Versi 2 -> 3: status "sudah diganti" untuk barang & penanda buku talangan. */
+        val MIGRASI_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `buku` ADD COLUMN `talangan` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `lunas` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "belanja.db")
-                .addMigrations(MIGRASI_1_2)
+                .addMigrations(MIGRASI_1_2, MIGRASI_2_3)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) = buatBukuBawaan(db)
                 })

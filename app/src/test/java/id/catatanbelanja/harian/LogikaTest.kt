@@ -18,9 +18,9 @@ class LogikaTest {
     private val contoh = listOf(
         Item(tanggal = tgl, nama = "Cabai rawit", jumlah = 0.25, satuan = "kg", harga = 60000, kategori = "Bumbu", toko = "Pasar Pagi", dibuat = 1),
         Item(tanggal = tgl, nama = "Tahu, putih \"super\"", jumlah = 2.0, satuan = "bungkus", harga = 5500, catatan = "baris 1\nbaris 2; titik koma", dibuat = 2),
-        Item(tanggal = tgl - 1, nama = "Beras", jumlah = 5.0, satuan = "kg", harga = 13500, dibuat = 3, bukuId = 2),
+        Item(tanggal = tgl - 1, nama = "Beras", jumlah = 5.0, satuan = "kg", harga = 13500, dibuat = 3, bukuId = 2, lunas = true),
     )
-    private val buku = listOf(Buku(1, "Belanja Rumah", 0), Buku(2, "Belanja Kantor", 1))
+    private val buku = listOf(Buku(1, "Belanja Rumah", 0), Buku(2, "Belanja Kantor", 1, talangan = true))
 
     @Test fun formatRupiah() {
         assertEquals("Rp 12.500", rupiah(12500))
@@ -51,6 +51,8 @@ class LogikaTest {
         assertEquals(listOf("Belanja Rumah", "Belanja Kantor"), hasil.buku)
         assertEquals(listOf("Belanja Rumah", "Belanja Rumah", "Belanja Kantor"), hasil.baris.map { it.buku })
         assertEquals(contoh.map { it.copy(id = 0, bukuId = 1) }, hasil.items)
+        assertEquals(setOf("belanja kantor"), hasil.bukuTalangan)
+        assertEquals(listOf(false, false, true), hasil.items.map { it.lunas })
     }
 
     @Test fun csvBolakBalik_bukuIkutTersimpan() {
@@ -64,6 +66,7 @@ class LogikaTest {
             assertEquals(a.toko, b.item.toko)
             assertEquals(a.kategori, b.item.kategori)
             assertEquals(buku.first { it.id == a.bukuId }.nama, b.buku)
+            assertEquals(a.lunas, b.item.lunas)
         }
     }
 
@@ -74,5 +77,14 @@ class LogikaTest {
         assertEquals(1, hasil.baris.size)
         assertEquals(null, hasil.baris[0].buku)
         assertTrue(hasil.buku.isEmpty())
+    }
+
+    @Test fun backupVersi2_bukuBerupaTeks_tetapBisaDibaca() {
+        val v2 = """{"format":"CatatanBelanjaHarian","versi":2,"buku":["Belanja Rumah","Belanja Kantor"],
+            "items":[{"tanggal":"2026-11-18","buku":"Belanja Kantor","nama":"Kertas","harga":55000}]}"""
+        val hasil = Backup.dariJson(v2)
+        assertEquals(listOf("Belanja Rumah", "Belanja Kantor"), hasil.buku)
+        assertTrue(hasil.bukuTalangan.isEmpty())
+        assertEquals(false, hasil.items[0].lunas)
     }
 }

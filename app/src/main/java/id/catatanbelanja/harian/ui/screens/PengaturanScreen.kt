@@ -1,6 +1,11 @@
 package id.catatanbelanja.harian.ui.screens
 
 import android.content.Context
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import id.catatanbelanja.harian.struk.StrukShare
+import java.io.File
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -44,6 +49,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.catatanbelanja.harian.BelanjaApp
+import id.catatanbelanja.harian.BuildConfig
 import id.catatanbelanja.harian.backup.Backup
 import id.catatanbelanja.harian.data.Buku
 import id.catatanbelanja.harian.data.ModeTema
@@ -80,22 +86,57 @@ fun PengaturanScreen(app: BelanjaApp, daftarBuku: List<Buku>) {
 
     fun pesan(teks: String) = Toast.makeText(context, teks, Toast.LENGTH_LONG).show()
 
-    val eksporJson = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
-        scope.launch {
-            val ok = runCatching {
-                val isi = Backup.keJson(dao.getAll(), dao.getAllBuku(), namaTersimpan)
-                tulis(context, uri, isi)
-            }.isSuccess
-            pesan(if (ok) "Backup berhasil disimpan" else "Gagal menyimpan backup")
-        }
+    /*
+     * Backup tidak memakai pemilih file (di sebagian HP, menulis lewat pintasan "Downloads"
+     * di pemilih file ditolak sistem dan menghasilkan file kosong). Sebagai gantinya file dibuat
+     * di cache lalu disimpan langsung ke folder Download atau dikirim lewat menu Share.
+     */
+    val tgl = LocalDate.now().toString()
+
+    suspend fun buatFileEkspor(jenis: JenisEkspor): File? = withContext(Dispatchers.IO) {
+        runCatching {
+            val isi = when (jenis) {
+                JenisEkspor.BACKUP -> Backup.keJson(dao.getAll(), dao.getAllBuku(), namaTersimpan)
+                JenisEkspor.CSV -> Backup.keCsv(dao.getAll(), dao.getAllBuku())
+            }
+            val nama = if (jenis == JenisEkspor.BACKUP) "backup-belanja-$tgl.json" else "belanja-$tgl.csv"
+            StrukShare.fileSementara(context, nama).apply { writeText(isi, Charsets.UTF_8) }
+        }.onFailure { android.util.Log.e("Backup", "gagal membuat file", it) }.getOrNull()
     }
-    val eksporCsv = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
-        scope.launch {
-            val ok = runCatching { tulis(context, uri, Backup.keCsv(dao.getAll(), dao.getAllBuku())) }.isSuccess
-            pesan(if (ok) "File CSV berhasil disimpan" else "Gagal menyimpan CSV")
-        }
+
+    fun simpanKeDownload(jenis: JenisEkspor) = scope.launch {
+        val ok = buatFileEkspor(jenis)?.let { f ->
+            withContext(Dispatchers.IO) { StrukShare.simpanKeDownload(context, f, jenis.mime) }
+        } ?: false
+        pesan(
+            when {
+                !ok -> "Gagal menyimpan file"
+                jenis == JenisEkspor.BACKUP -> "Backup tersimpan di folder Download (backup-belanja-$tgl.json)"
+                else -> "File Excel tersimpan di folder Download (belanja-$tgl.csv)"
+            }
+        )
+    }
+
+    fun kirim(jenis: JenisEkspor) = scope.launch {
+        val f = buatFileEkspor(jenis) ?: return@launch pesan("Gagal membuat file")
+        StrukShare.bagikanFile(
+            context, f, jenis.mime,
+            if (jenis == JenisEkspor.BACKUP) "Backup Catatan Belanja $tgl" else "Catatan belanja $tgl (CSV)",
+            "Kirim file lewat…",
+        )
+    }
+
+    var tertunda by remember { mutableStateOf<JenisEkspor?>(null) }
+    val izinTulis = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        val jenis = tertunda
+        tertunda = null
+        if (ok && jenis != null) simpanKeDownload(jenis) else pesan("Izin penyimpanan dibutuhkan")
+    }
+    fun mintaSimpan(jenis: JenisEkspor) {
+        val perlu = StrukShare.perluIzinTulis && ContextCompat.checkSelfPermission(
+            context, Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        ) != PackageManager.PERMISSION_GRANTED
+        if (perlu) { tertunda = jenis; izinTulis.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) } else simpanKeDownload(jenis)
     }
     val impor = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
@@ -177,19 +218,22 @@ fun PengaturanScreen(app: BelanjaApp, daftarBuku: List<Buku>) {
 
             Bagian("Backup & Pindah HP") {
                 Text(
-                    "Simpan semua catatan ke file. Kirim file itu ke HP baru (misalnya lewat WhatsApp/Google Drive), " +
-                        "lalu pilih \"Impor Data\" di HP baru.",
+                    "Simpan semua catatan (semua buku) ke satu file backup. Kirim file itu ke HP baru " +
+                        "(misalnya lewat WhatsApp/Google Drive), lalu pilih \"Impor Data\" di HP baru.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                val tgl = LocalDate.now().toString()
                 FilledTonalButton(
-                    onClick = { eksporJson.launch("backup-belanja-$tgl.json") },
+                    onClick = { kirim(JenisEkspor.BACKUP) },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
-                ) { Text("Backup Data (JSON)") }
+                ) { Text("Kirim Backup (WhatsApp, Drive, dll.)") }
                 OutlinedButton(
-                    onClick = { eksporCsv.launch("belanja-$tgl.csv") },
+                    onClick = { mintaSimpan(JenisEkspor.BACKUP) },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
-                ) { Text("Ekspor ke Excel (CSV)") }
+                ) { Text("Simpan Backup ke folder Download") }
+                OutlinedButton(
+                    onClick = { mintaSimpan(JenisEkspor.CSV) },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                ) { Text("Ekspor ke Excel (CSV) ke folder Download") }
                 OutlinedButton(
                     onClick = { impor.launch(arrayOf("application/json", "text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream")) },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -197,7 +241,7 @@ fun PengaturanScreen(app: BelanjaApp, daftarBuku: List<Buku>) {
             }
 
             Text(
-                "Catatan Belanja Harian v1.0 — semua data tersimpan di HP ini saja, tanpa internet dan tanpa login.",
+                "Catatan Belanja Harian v${BuildConfig.VERSION_NAME} — semua data tersimpan di HP ini saja, tanpa internet dan tanpa login.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -246,10 +290,6 @@ private fun Bagian(judul: String, isi: @Composable () -> Unit) {
     }
 }
 
-private suspend fun tulis(context: Context, uri: Uri, isi: String) = withContext(Dispatchers.IO) {
-    context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(isi.toByteArray(Charsets.UTF_8)) }
-        ?: error("Tidak bisa menulis file")
-}
 
 private suspend fun baca(context: Context, uri: Uri): String = withContext(Dispatchers.IO) {
     context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
@@ -269,7 +309,7 @@ private suspend fun terapkanImpor(app: BelanjaApp, hasil: Backup.HasilImpor, gan
         val nama = (hasil.buku + if (hasil.baris.any { it.buku == null }) listOf(Buku.NAMA_BAWAAN) else emptyList())
             .distinctBy { it.lowercase() }
             .ifEmpty { listOf(Buku.NAMA_BAWAAN) }
-        val buku = nama.mapIndexed { i, n -> Buku(id = i + 1L, nama = n, urutan = i) }
+        val buku = nama.mapIndexed { i, n -> Buku(id = i + 1L, nama = n, urutan = i, talangan = n.lowercase() in hasil.bukuTalangan) }
         val idDari = buku.associate { it.nama.lowercase() to it.id }
         val items = hasil.baris.map { b ->
             b.item.copy(id = 0, bukuId = idDari[(b.buku ?: Buku.NAMA_BAWAAN).lowercase()] ?: buku.first().id)
@@ -283,8 +323,9 @@ private suspend fun terapkanImpor(app: BelanjaApp, hasil: Backup.HasilImpor, gan
     hasil.buku.forEach { n ->
         if (n.lowercase() !in idDari) {
             val urutan = (ada.maxOfOrNull { it.urutan } ?: 0) + 1
-            val id = dao.insertBuku(Buku(nama = n, urutan = urutan))
-            ada += Buku(id, n, urutan)
+            val talangan = n.lowercase() in hasil.bukuTalangan
+            val id = dao.insertBuku(Buku(nama = n, urutan = urutan, talangan = talangan))
+            ada += Buku(id, n, urutan, talangan)
             idDari[n.lowercase()] = id
         }
     }
@@ -296,4 +337,10 @@ private suspend fun terapkanImpor(app: BelanjaApp, hasil: Backup.HasilImpor, gan
     val baru = items.filter { Backup.kunci(it) !in sudahAda }
     dao.insertAll(baru)
     return baru.size
+}
+
+/** Jenis file yang bisa diekspor dari Pengaturan. */
+private enum class JenisEkspor(val mime: String) {
+    BACKUP("application/json"),
+    CSV("text/csv"),
 }

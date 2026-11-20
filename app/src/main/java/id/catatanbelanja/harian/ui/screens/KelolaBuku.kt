@@ -64,8 +64,11 @@ fun KelolaBuku(app: BelanjaApp, daftarBuku: List<Buku>) {
                         if (b.id == idAktif) {
                             Text("Sedang dipakai", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                         }
+                        if (b.talangan) {
+                            Text("Uang ditalangi (ada status sudah/belum diganti)", style = MaterialTheme.typography.bodySmall)
+                        }
                     }
-                    IconButton(onClick = { ubah = b }) { Icon(Icons.Filled.Edit, contentDescription = "Ganti nama ${b.nama}") }
+                    IconButton(onClick = { ubah = b }) { Icon(Icons.Filled.Edit, contentDescription = "Ubah ${b.nama}") }
                     IconButton(
                         onClick = { scope.launch { hapus = b to dao.countItemsInBuku(b.id) } },
                         enabled = daftarBuku.size > 1, // minimal harus ada satu buku
@@ -80,13 +83,15 @@ fun KelolaBuku(app: BelanjaApp, daftarBuku: List<Buku>) {
 
     ubah?.let { b ->
         var nama by remember(b) { mutableStateOf(b.nama) }
+        var talangan by remember(b) { mutableStateOf(b.talangan) }
         val baru = b.id == 0L
         val namaBersih = nama.trim()
         val kembar = daftarBuku.any { it.id != b.id && it.nama.equals(namaBersih, ignoreCase = true) }
         AlertDialog(
             onDismissRequest = { ubah = null },
-            title = { Text(if (baru) "Buku baru" else "Ganti nama buku") },
+            title = { Text(if (baru) "Buku baru" else "Ubah buku") },
             text = {
+              Column {
                 OutlinedTextField(
                     value = nama,
                     onValueChange = { nama = it.take(40) },
@@ -98,14 +103,16 @@ fun KelolaBuku(app: BelanjaApp, daftarBuku: List<Buku>) {
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                PilihanTalangan(talangan) { talangan = it }
+              }
             },
             confirmButton = {
                 TextButton(
                     enabled = namaBersih.isNotEmpty() && !kembar,
                     onClick = {
                         scope.launch {
-                            if (baru) tambahBuku(app, namaBersih, daftarBuku)
-                            else dao.updateBuku(b.copy(nama = namaBersih))
+                            if (baru) tambahBuku(app, namaBersih, daftarBuku, talangan)
+                            else dao.updateBuku(b.copy(nama = namaBersih, talangan = talangan))
                         }
                         ubah = null
                     },

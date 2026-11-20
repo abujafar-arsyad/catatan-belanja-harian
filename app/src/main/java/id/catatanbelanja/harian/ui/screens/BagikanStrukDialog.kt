@@ -68,7 +68,14 @@ import kotlinx.coroutines.withContext
 
 /** Layar penuh: isi catatan opsional, lihat pratinjau struk, lalu Bagikan / Simpan ke Galeri. */
 @Composable
-fun BagikanStrukDialog(app: BelanjaApp, tanggal: Long, namaBuku: String, items: List<Item>, onTutup: () -> Unit) {
+fun BagikanStrukDialog(
+    app: BelanjaApp,
+    tanggal: Long,
+    namaBuku: String,
+    items: List<Item>,
+    statusGanti: Boolean? = null,
+    onTutup: () -> Unit,
+) {
     val context = LocalContext.current
     val namaPencatat by app.settings.namaPencatat.collectAsStateWithLifecycle()
     val warna by app.settings.warna.collectAsStateWithLifecycle()
@@ -76,10 +83,10 @@ fun BagikanStrukDialog(app: BelanjaApp, tanggal: Long, namaBuku: String, items: 
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     // Gambar ulang pratinjau saat catatan/daftar berubah (diberi jeda agar tidak berat saat mengetik)
-    LaunchedEffect(items, catatan, namaPencatat, warna) {
+    LaunchedEffect(items, catatan, namaPencatat, warna, statusGanti) {
         delay(if (bitmap == null) 0 else 400)
         bitmap = withContext(Dispatchers.Default) {
-            StrukRenderer.render(tanggal, items, namaPencatat, catatan, warna, namaBuku)
+            StrukRenderer.render(tanggal, items, namaPencatat, catatan, warna, namaBuku, statusGanti)
         }
     }
 

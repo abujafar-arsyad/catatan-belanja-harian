@@ -1,8 +1,19 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
+}
+
+/*
+ * Kunci tanda tangan rilis dibaca dari file `keystore.properties` di folder project
+ * (TIDAK ikut di-commit ke git). Isinya: storeFile, storePassword, keyAlias, keyPassword.
+ * Contoh ada di `keystore.properties.example`. Jika file tidak ada, APK release memakai kunci debug.
+ */
+val kunciRilis = rootProject.file("keystore.properties").takeIf { it.exists() }?.let { f ->
+    Properties().apply { f.inputStream().use { load(it) } }
 }
 
 android {
@@ -13,8 +24,19 @@ android {
         applicationId = "id.catatanbelanja.harian"
         minSdk = 26          // Android 8.0
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
+    }
+
+    signingConfigs {
+        if (kunciRilis != null) {
+            create("rilis") {
+                storeFile = file(kunciRilis.getProperty("storeFile"))
+                storePassword = kunciRilis.getProperty("storePassword")
+                keyAlias = kunciRilis.getProperty("keyAlias")
+                keyPassword = kunciRilis.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -22,16 +44,17 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Supaya APK release bisa langsung dipasang tanpa membuat keystore sendiri.
-            // Untuk rilis ke Play Store, ganti dengan signingConfig milik Anda.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (kunciRilis != null) signingConfigs.getByName("rilis") else signingConfigs.getByName("debug")
         }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true // untuk menampilkan nomor versi di Pengaturan
+    }
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
@@ -67,4 +90,5 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303") // org.json asli untuk unit test di JVM
     testImplementation("org.robolectric:robolectric:4.16")
+    testImplementation("androidx.test:core:1.7.0")
 }

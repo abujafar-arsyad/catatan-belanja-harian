@@ -1,0 +1,162 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 3,
+    "identityHash": "ae4feeed6d49f6eb3aa8f51e27c123b6",
+    "entities": [
+      {
+        "tableName": "items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `bukuId` INTEGER NOT NULL DEFAULT 1, `tanggal` INTEGER NOT NULL, `nama` TEXT NOT NULL, `jumlah` REAL NOT NULL, `satuan` TEXT NOT NULL, `harga` INTEGER NOT NULL, `kategori` TEXT, `toko` TEXT, `catatan` TEXT, `dibuat` INTEGER NOT NULL, `lunas` INTEGER NOT NULL DEFAULT 0)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bukuId",
+            "columnName": "bukuId",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "tanggal",
+            "columnName": "tanggal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nama",
+            "columnName": "nama",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "jumlah",
+            "columnName": "jumlah",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "satuan",
+            "columnName": "satuan",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "harga",
+            "columnName": "harga",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kategori",
+            "columnName": "kategori",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "toko",
+            "columnName": "toko",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "catatan",
+            "columnName": "catatan",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dibuat",
+            "columnName": "dibuat",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lunas",
+            "columnName": "lunas",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_items_tanggal",
+            "unique": false,
+            "columnNames": [
+              "tanggal"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_items_tanggal` ON `${TABLE_NAME}` (`tanggal`)"
+          },
+          {
+            "name": "index_items_nama",
+            "unique": false,
+            "columnNames": [
+              "nama"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_items_nama` ON `${TABLE_NAME}` (`nama`)"
+          },
+          {
+            "name": "index_items_bukuId",
+            "unique": false,
+            "columnNames": [
+              "bukuId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_items_bukuId` ON `${TABLE_NAME}` (`bukuId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "buku",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `nama` TEXT NOT NULL, `urutan` INTEGER NOT NULL, `talangan` INTEGER NOT NULL DEFAULT 0)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nama",
+            "columnName": "nama",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "urutan",
+            "columnName": "urutan",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "talangan",
+            "columnName": "talangan",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ae4feeed6d49f6eb3aa8f51e27c123b6')"
+    ]
+  }
+}
